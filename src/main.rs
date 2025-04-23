@@ -17,6 +17,8 @@ fn main() -> notify::Result<()> {
 
     watcher.watch(&dir, RecursiveMode::Recursive)?;
 
+    let excluded_dirs = [".git", "node_modules"];
+
     for res in rx {
         match res {
             Ok(event) => {
@@ -24,6 +26,11 @@ fn main() -> notify::Result<()> {
                 if event.kind == EventKind::Modify(ModifyKind::Data(DataChange::Any)) {
 
                     let path = &event.paths[0];
+
+                    if contains_excluded_dir(path, &excluded_dirs) {
+                        continue;
+                    }
+
                     let rel_path = path.strip_prefix(&dir).unwrap();
 
                     Command::new("sh")
@@ -38,4 +45,16 @@ fn main() -> notify::Result<()> {
     }
 
     Ok(())
+}
+
+fn contains_excluded_dir<P: AsRef<Path>>(path: P, excluded: &[&str]) -> bool {
+    path.as_ref()
+        .ancestors()
+        .any(|ancestor| {
+            ancestor
+                .components()
+                .any(|component| {
+                    excluded.iter().any(|&ex| component.as_os_str() == ex)
+                })
+        })
 }
